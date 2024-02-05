@@ -209,6 +209,11 @@ namespace LLama.Native
                 // otherwise no cuda detected but allow fallback
             }
 
+            if (configuration.UseOpenCL && platform != OSPlatform.OSX)
+            {
+                result.Add($"{prefix}clblast/{libraryNamePrefix}{libraryName}{suffix}");
+            }
+
             // use cpu (or mac possibly with metal)
             if (!configuration.AllowFallback && platform != OSPlatform.OSX)
             {
