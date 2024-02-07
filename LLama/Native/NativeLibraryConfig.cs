@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace LLama.Native
 {
@@ -24,6 +25,7 @@ namespace LLama.Native
         public static bool LibraryHasLoaded { get; internal set; } = false;
 
         private string _libraryPath = string.Empty;
+        private bool _useOpenCL = true;
         private bool _useCuda = true;
         private AvxLevel _avxLevel;
         private bool _allowFallback = true;
@@ -42,16 +44,22 @@ namespace LLama.Native
         }
 
         /// <summary>
-        /// Load a specified native library as backend for LLamaSharp.
-        /// When this method is called, all the other configurations will be ignored.
+        /// Load a llama from a specified path. This must be a directory containing (lib?)llama.(so|dll|dylib) and
+        /// any associated dependencies
         /// </summary>
         /// <param name="libraryPath"></param>
         /// <exception cref="InvalidOperationException">Thrown if `LibraryHasLoaded` is true.</exception>
-        public NativeLibraryConfig WithLibrary(string libraryPath)
+        public NativeLibraryConfig WithLibraryPath(string libraryPath)
         {
             ThrowIfLoaded();
 
             _libraryPath = libraryPath;
+            return this;
+        }
+
+        public NativeLibraryConfig WithOpenCL(bool enable = true)
+        {
+            _useOpenCL = enable;
             return this;
         }
 
@@ -165,6 +173,7 @@ namespace LLama.Native
             return new Description(
                 Instance._libraryPath, 
                 Instance._useCuda, 
+                Instance._useOpenCL,
                 Instance._avxLevel, 
                 Instance._allowFallback, 
                 Instance._skipCheck, 
@@ -177,11 +186,10 @@ namespace LLama.Native
         {
             return level switch
             {
+                > AvxLevel.Avx512 => throw new ArgumentOutOfRangeException(nameof(level),
+                    $"Unknown AvxLevel: '{level}'"),
                 AvxLevel.None => string.Empty,
-                AvxLevel.Avx => "avx",
-                AvxLevel.Avx2 => "avx2",
-                AvxLevel.Avx512 => "avx512",
-                _ => throw new ArgumentException($"Unknown AvxLevel '{level}'")
+                _ => level.ToString("G").ToLower()
             };
         }
 
@@ -250,7 +258,7 @@ namespace LLama.Native
             Avx512,
         }
 
-        internal record Description(string Path, bool UseCuda, AvxLevel AvxLevel, bool AllowFallback, bool SkipCheck, bool Logging, string[] SearchDirectories)
+        internal record Description(string Path, bool UseCuda, bool UseOpenCL, AvxLevel AvxLevel, bool AllowFallback, bool SkipCheck, bool Logging, string[] SearchDirectories)
         {
             public override string ToString()
             {
@@ -268,6 +276,7 @@ namespace LLama.Native
                 return $"NativeLibraryConfig Description:\n" +
                        $"- Path: {Path}\n" +
                        $"- PreferCuda: {UseCuda}\n" +
+                       $"- PreferOpenCL: {UseOpenCL}\n" +
                        $"- PreferredAvxLevel: {avxLevelString}\n" +
                        $"- AllowFallback: {AllowFallback}\n" +
                        $"- SkipCheck: {SkipCheck}\n" +
